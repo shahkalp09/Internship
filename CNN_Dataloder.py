@@ -1,19 +1,25 @@
 import pandas as pd
-import numpy as np
 import re
-from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import train_test_split
 import torch
 import torch.nn as nn
-import torch.nn.functional as f
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
+from torch.nn.utils.rnn import pad_sequence
 
 class IMDBDataset(Dataset):
     def __init__(self, file_path, max_seq_len):
         self.df = pd.read_csv(file_path)
         self.max_seq_len = max_seq_len
-        self.preprocess_data()
+        self.vocab, self.char_to_index = self.create_vocab_and_mapping()
+        self.sequences, self.labels = self.preprocess_data()
+
+    def create_vocab_and_mapping(self):
+        vocab = set()
+        for text in self.df['review']:
+            vocab.update(text)
+        char_to_index = {char: i + 1 for i, char in enumerate(vocab)}
+        char_to_index['<PAD>'] = 0
+        return vocab, char_to_index
 
     def preprocess_data(self):
         positive_df = self.df[self.df['sentiment'] == 'positive'].head(150)
@@ -22,37 +28,30 @@ class IMDBDataset(Dataset):
         df_reduced['review'] = df_reduced['review'].apply(lambda x: ' '.join(x.split()[:50]))
         df_reduced['review'] = df_reduced['review'].apply(lambda x: re.sub(r'[^a-zA-Z0-9\s\W]', '', x))
         df_reduced.reset_index(drop=True, inplace=True)
-        self.data = df_reduced['review'].tolist()
-        self.labels = df_reduced['sentiment'].tolist()
+
+        sequences = []
+        labels = []
+        for text, label in zip(df_reduced['review'], df_reduced['sentiment']):
+            seq = [self.char_to_index[char] for char in text]
+            if len(seq) > 0:
+                sequences.append(torch.tensor(seq))
+                labels.append(1 if label == 'positive' else 0)
+
+        return sequences, labels
 
     def __len__(self):
-        return len(self.data)
+        return len(self.sequences)
 
     def __getitem__(self, index):
-        text = self.data[index]
+        seq = self.sequences[index]
         label = self.labels[index]
-        seq = [char_to_index[char] for char in text]
-        seq += [char_to_index['<PAD>']] * (self.max_seq_len - len(seq))
-        return torch.tensor(seq, dtype=torch.long), torch.tensor(label, dtype=torch.float)
+        return seq, label
 
 # Load the dataset
 file_path = "C:\\Users\\Admin\\OneDrive\\Desktop\\internship\\IMDB Dataset.csv\\IMDB Dataset.csv"
-df = pd.read_csv(file_path)
-
-# Create label encoder
-label_encoder = LabelEncoder()
-encoded_labels = label_encoder.fit_transform(df['sentiment'])
-
-# Create vocabulary and character-to-index mapping
-vocab = set()
-max_seq_len = 0
-for text in df['review']:
-    vocab.update(text)
-    max_seq_len = max(max_seq_len, len(text))
-char_to_index = {char: i + 1 for i, char in enumerate(vocab)}
-char_to_index['<PAD>'] = 0
 
 # Create the dataset
+max_seq_len = 50
 dataset = IMDBDataset(file_path, max_seq_len)
 
 # Split the dataset into train and test sets
@@ -60,10 +59,19 @@ train_size = int(0.8 * len(dataset))
 test_size = len(dataset) - train_size
 train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
 
+# Pad the sequences to a fixed length
+train_dataset = [(seq, label) for seq, label in train_dataset]
+test_dataset = [(seq, label) for seq, label in test_dataset]
+
+def collate_fn(batch):
+    sequences, labels = zip(*batch)
+    sequences = pad_sequence(sequences, batch_first=True, padding_value=0)
+    return sequences, torch.tensor(labels)
+
 # Create data loaders
-batch_size = 1
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+batch_size = 60  # Adjust batch size as needed
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
+test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
 
 # Define the CNN model
 class CNN(nn.Module):
@@ -86,7 +94,7 @@ class CNN(nn.Module):
         return self.fc(cat)
 
 # Set the hyperparameters
-vocab_size = len(vocab) + 1
+vocab_size = len(dataset.vocab) + 1
 embed_size = 100
 num_filters = 100
 filter_sizes = [3, 4, 5]
@@ -101,23 +109,24 @@ criterion = nn.BCEWithLogitsLoss()
 # Train the model
 for epoch in range(num_epochs):
     running_loss = 0.0
-    for i, (inputs, targets) in enumerate(train_loader):
+    for inputs, targets in train_loader:
         optimizer.zero_grad()
         outputs = model(inputs)
-        loss = criterion(outputs, targets.unsqueeze(1))
+        loss = criterion(outputs.squeeze(), targets.float())
         loss.backward()
         optimizer.step()
         running_loss += loss.item()
     print(f'Epoch {epoch + 1}/{num_epochs}, Loss: {running_loss / len(train_loader)}')
 
 test_predictions = []
+test_labels = []
+
 with torch.no_grad():
-    for inputs, _ in test_loader:
+    for inputs, labels in test_loader:
         outputs = model(inputs)
         predictions = torch.round(torch.sigmoid(outputs))
         test_predictions.extend(predictions.tolist())
-
-test_labels = test_dataset.dataset.labels
+        test_labels.extend(labels.tolist())
 
 from sklearn.metrics import classification_report
 report = classification_report(test_labels, test_predictions)
