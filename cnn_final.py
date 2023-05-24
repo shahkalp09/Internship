@@ -1,14 +1,6 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-
-
-df = pd.read_csv("C:\\Users\\Admin\\OneDrive\\Desktop\\internship\\language.csv")
-
-print(df.head())
-print(df['Category'].value_counts())
-print(df.shape)
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -17,19 +9,39 @@ from torch.utils.data import Dataset, DataLoader
 from torch.nn.utils.rnn import pad_sequence
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+
+# Set seeds for reproducibility
 torch.manual_seed(42)
 np.random.seed(42)
+
+# Read the CSV file
+df = pd.read_csv("C:\\Users\\Admin\\OneDrive\\Desktop\\internship\\language.csv")
+
+# Print the first few rows of the dataframe
+print(df.head())
+
+# Count the occurrences of each category
+print(df['Category'].value_counts())
+
+# Print the shape of the dataframe
+print(df.shape)
+
+# Encode the labels using LabelEncoder
 label_encoder = LabelEncoder()
 df['label'] = label_encoder.fit_transform(df['Category'])
+
+# Create a vocabulary of unique characters in the 'Name' column
 char_vocab = set(''.join(df['Name']))
 char_to_index = {char: i for i, char in enumerate(char_vocab)}
 vocab_size = len(char_vocab)
 print(vocab_size)
+
+# Function to convert text to character embeddings
 def text_to_char_embeddings(text):
     char_embeddings = [char_to_index[char] for char in text]
     return torch.tensor(char_embeddings, dtype=torch.float32)
 
-
+# Custom Dataset class
 class CustomDataset(Dataset):
     def __init__(self, X, y):
         self.X = X
@@ -42,19 +54,29 @@ class CustomDataset(Dataset):
         text = self.X.iloc[index]
         label = self.y.iloc[index]
         return text, label
+
+# Create the dataset
 dataset = CustomDataset(df['Name'], df['label'])
+
+# Split the dataset into train and test sets
 train_size = int(0.8 * len(dataset))
 test_size = len(dataset) - train_size
 train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
+
+# Function to collate data samples into batches
 def collate_fn(data):
     inputs, targets = zip(*data)
     inputs = [text_to_char_embeddings(text) for text in inputs]
     inputs = pad_sequence(inputs, batch_first=True)
     targets = torch.tensor(targets)
     return inputs, targets
+
+# Set batch size and create data loaders
 batch_size = 64
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
+
+# CNN model class
 class CNN(nn.Module):
     def __init__(self, num_classes, vocab_size):
         super(CNN, self).__init__()
@@ -78,12 +100,10 @@ class CNN(nn.Module):
 num_classes = len(label_encoder.classes_)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = CNN(num_classes, vocab_size).to(device)
+
+# Define loss function, optimizer, and evaluation metrics
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
-import torch.nn.functional as F
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-
-
 
 # Training loop
 num_epochs = 10
@@ -127,6 +147,7 @@ for epoch in range(num_epochs):
     test_recall = recall_score(y_true, y_pred, average='macro')
     test_f1 = f1_score(y_true, y_pred, average='macro')
 
+    # Print epoch results
     print(f"Epoch {epoch+1}/{num_epochs}: Train Loss: {train_loss:.4f}, "
           f"Test Accuracy: {test_accuracy:.4f}, "
           f"Test Precision: {test_precision:.4f}, "
