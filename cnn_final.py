@@ -7,48 +7,7 @@ df = pd.read_csv("C:\\Users\\Admin\\OneDrive\\Desktop\\internship\\language.csv"
 
 print(df.head())
 print(df['Category'].value_counts())
-
-import pandas as pd
-from imblearn.over_sampling import RandomOverSampler
-
-# Read the dataset from the CSV file
-#df = pd.read_csv("C:/Users/Admin/OneDrive/Desktop/internship/language.csv")
-
-# Define the categories and their desired sample count
-category_counts = {
-    'russian': 200,
-    'english': 200,
-    'arabic': 200,
-    'czech': 200,
-    'japanese': 200,
-    'german': 200,
-    'italian': 200,
-    'spanish': 200,
-    'dutch': 200,
-    'french': 200,
-    'chinese': 200,
-    'irish': 200,
-    'greek': 200,
-    'polish': 200,
-    'scottish': 200,
-    'korean': 200,
-    'portugese': 200,
-    'vietnamese': 200
-}
-
-df_balanced = pd.DataFrame()
-for category, count in category_counts.items():
-    df_category = df[df['Category'] == category]
-    if len(df_category) > count:
-        df_category_sampled = df_category.sample(n=count, random_state=42)
-    else:
-        df_category_sampled = df_category.sample(n=count, replace=True, random_state=42)
-    df_balanced = pd.concat([df_balanced, df_category_sampled])
-
-df_balanced = df_balanced.reset_index(drop=True)
-print(df_balanced['Category'].value_counts())
-print(df_balanced[df_balanced['Category']=='english'])
-print(df_balanced.shape)
+print(df.shape)
 
 import torch
 import torch.nn as nn
@@ -61,8 +20,8 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 torch.manual_seed(42)
 np.random.seed(42)
 label_encoder = LabelEncoder()
-df_balanced['label'] = label_encoder.fit_transform(df_balanced['Category'])
-char_vocab = set(''.join(df_balanced['Name']))
+df['label'] = label_encoder.fit_transform(df['Category'])
+char_vocab = set(''.join(df['Name']))
 char_to_index = {char: i for i, char in enumerate(char_vocab)}
 vocab_size = len(char_vocab)
 print(vocab_size)
@@ -83,7 +42,7 @@ class CustomDataset(Dataset):
         text = self.X.iloc[index]
         label = self.y.iloc[index]
         return text, label
-dataset = CustomDataset(df_balanced['Name'], df_balanced['label'])
+dataset = CustomDataset(df['Name'], df['label'])
 train_size = int(0.8 * len(dataset))
 test_size = len(dataset) - train_size
 train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
