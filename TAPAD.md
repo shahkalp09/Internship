@@ -16,13 +16,13 @@ We use different kinds of positional embeddings:
 - Rank ID if column values can be parsed as floats or dates, we sort them accordingly and assign an embedding based on their numeric rank (0 for not comparable, 1 for the smallest item, i + 1 for an item with rank i). This can assist the model when processing questions that involve superlatives, as word pieces may not represent numbers informatively
 - Previous Answer given a conversational setup where the current question might refer to the previous question or its answers, we add a special embedding that marks whether a cell token was the answer to the previous question (1 if the token's cell was an answer or 0 otherwise).
 
-![alt text](RackMultipart20230609-1-hnxx25_html_7505dd8641d0dd6c.png)
+![plot]([RackMultipart20230609-1-hnxx25_html_7505dd8641d0dd6c.png](https://1.bp.blogspot.com/-Rh7FdX9e4x4/XqsCvW8drRI/AAAAAAAAF3c/Lt_uYMCGKeUR2wmiB2Qd2yOF4hNDvoTBwCLcBGAsYHQ/s1600/image2.png))
 
 **Cell Selection:**
 
 The classification layer selects the subset of the cell from the table according to requirements. Depending on the selected aggregation operator, these cells can be the final answer or the input used to compute the final answer. Cells are modeled as independent Bernoulli variables. First, we compute the logit for a token using a linear layer on top of its last hidden vector. Cell logits are then computed as the average over logits of tokens in that cell. The output of the layer is the probability p(c)s to select cell c.
 
-![alt text](RackMultipart20230609-1-hnxx25_html_942af99d4b2b4bef.png)
+![plot]([RackMultipart20230609-1-hnxx25_html_942af99d4b2b4bef.png](https://1.bp.blogspot.com/-SOS5yrSg0lw/XqsC0RyAXiI/AAAAAAAAF3g/BcOoE84UY64QtwoZC06YEe_6SblvxMncgCLcBGAsYHQ/s1600/image1.png)
 
 **Aggregation operator prediction:**
 
