@@ -37,6 +37,26 @@ We predict the most likely aggregation operator together with a subset of the ce
 1. TAPAS handles single tables as context, which are able to fit in memory. Thus, TAPAS model would fail to capture very large tables, or databases that contain multiple tables.
 2. Although TAPAS can parse compositional structures, its expressivity is limited to a form of aggregation over a subset of table cells. Thus, structures with multiple aggregations such as "number of actors with an average rating higher than 4" could not be handled correctly.
 
+**Columns Needeed for Preparing the Dataset in SQA format** 
+
+id: optional, id of the table-question pair, for bookkeeping purposes.
+
+annotator: optional, id of the person who annotated the table-question pair, for bookkeeping purposes.
+
+position: integer indicating if the question is the first, second, third,… related to the table. Only required in case of conversational setup (SQA).
+
+question: string.
+
+table_file: string, name of a csv file containing the tabular data.
+
+answer_coordinates: list of one or more tuples (each tuple being a cell coordinate, i.e. row, column pair that is part of the answer).
+
+answer_text: list of one or more strings (each string being a cell value that is part of the answer).
+
+aggregation_label:(optional) index of the aggregation operator. Only required in case of strong supervision for aggregation (the WikiSQL-supervised case).
+
+float_answer: (optional)the float answer to the question, if there is one (np.nan if there isn’t). Only required in case of weak supervision for aggregation.
+
 **References:**
 
 Understanding tables with intermediate pre-training
